@@ -8,7 +8,7 @@ func TestChecksValidation(t *testing.T) {
 	p := &Product{
 		Name:  "tea",
 		Price: 1,
-		SKU:   "abc-def-efg-sdsd-sds-sad",
+		SKU:   "abc-def-efg",
 	}
 
 	err := p.Validate()
