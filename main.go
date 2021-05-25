@@ -7,6 +7,9 @@ import (
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/go-openapi/runtime/middleware"
+
 	"github.com/abhinavdwivedi440/microservices/handlers"
 	"github.com/gorilla/mux"
 	"github.com/nicholasjackson/env"
@@ -15,9 +18,14 @@ import (
 var bindAddress = env.String("BIND_ADDRESS", false, ":4000", "Bind address for the server")
 
 func main() {
-	env.Parse()
 
 	l := log.New(os.Stdout, "product-api ", log.LstdFlags)
+
+	err := env.Parse()
+	if err != nil {
+		l.Printf("parse error %s\n", err)
+		return
+	}
 
 	// create the handlers
 	ph := handlers.NewProducts(l)
@@ -25,26 +33,29 @@ func main() {
 	// create a new serve mux and register the handlers
 	sm := mux.NewRouter()
 	getRouter := sm.Methods(http.MethodGet).Subrouter()
-	getRouter.HandleFunc("/", ph.GetProducts)
+	getRouter.HandleFunc("/products", ph.GetProducts)
 
 	putRouter := sm.Methods(http.MethodPut).Subrouter()
-	putRouter.HandleFunc("/{id:[0-9]+}", ph.UpdateProduct)
+	putRouter.HandleFunc("/products/{id:[0-9]+}", ph.UpdateProduct)
 	putRouter.Use(ph.MiddlewareProductValidation)
 
 	postRouter := sm.Methods(http.MethodPost).Subrouter()
-	postRouter.HandleFunc("/", ph.AddProduct)
+	postRouter.HandleFunc("/products/", ph.AddProduct)
 	postRouter.Use(ph.MiddlewareProductValidation)
 
-
+	opts := middleware.RedocOpts{SpecURL: "/swagger.yaml"}
+	sh := middleware.Redoc(opts, nil)
+	getRouter.Handle("/docs", sh)
+	getRouter.Handle("/swagger.yaml", http.FileServer(http.Dir("./")))
 
 	// create a new server
 	s := &http.Server{
-		Addr:         *bindAddress, 		// configure the bind address
-		Handler:      sm,					// set the default handler
-		ErrorLog:     l,                 	// set the logger for the server
-		IdleTimeout:  120 * time.Second, 	// max time to read request from the client
-		ReadTimeout:  1 * time.Second,		// max time to write request to the client
-		WriteTimeout: 1 * time.Second,		// max time for connections using TCP Keep-Alive
+		Addr:         *bindAddress,      // configure the bind address
+		Handler:      sm,                // set the default handler
+		ErrorLog:     l,                 // set the logger for the server
+		IdleTimeout:  120 * time.Second, // max time to read request from the client
+		ReadTimeout:  1 * time.Second,   // max time to write request to the client
+		WriteTimeout: 1 * time.Second,   // max time for connections using TCP Keep-Alive
 	}
 
 	// start the server
@@ -64,9 +75,12 @@ func main() {
 
 	// Block until a signal is received.
 	sig := <-sigChan
-	l.Println("Recieved terminate, graceful shutdown", sig)
+	l.Println("Received terminate, graceful shutdown", sig)
 
 	tc, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	s.Shutdown(tc)
+	err = s.Shutdown(tc)
+	if err != nil {
+		l.Printf("error in shutdown %s\n", err)
+	}
 }

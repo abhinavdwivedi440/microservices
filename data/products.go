@@ -10,7 +10,7 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-var ErrProductNotFound = errors.New("Error not found")
+var ErrProductNotFound = errors.New("error not found")
 
 // Product defines the structure for an API product
 type Product struct {
@@ -32,7 +32,10 @@ func (p *Product) FromJSON(r io.Reader) error {
 func (p *Product) Validate() error {
 	validate := validator.New()
 
-	validate.RegisterValidation("sku", validateSKU)
+	err := validate.RegisterValidation("sku", validateSKU)
+	if err != nil {
+		return err
+	}
 
 	return validate.Struct(p)
 
@@ -76,22 +79,33 @@ func AddProduct(p *Product) {
 }
 
 func UpdateProduct(id int, p *Product) error {
-	_, pos, err := findProduct(id)
-	if err != nil {
-		return err
+	i := findProduct(id)
+	if i == -1 {
+		return ErrProductNotFound
 	}
 	p.ID = id
-	productList[pos] = p
+	productList[i] = p
 	return nil
 }
 
-func findProduct(id int) (*Product, int, error) {
+func DeleteProduct(id int) error {
+	i := findProduct(id)
+	if i == -1 {
+		return ErrProductNotFound
+	}
+
+	productList = append(productList[:i], productList[i+1])
+
+	return nil
+}
+
+func findProduct(id int) int {
 	for i, p := range productList {
 		if p.ID == id {
-			return p, i, nil
+			return i
 		}
 	}
-	return nil, -1, ErrProductNotFound
+	return -1
 }
 
 func getNextID() int {

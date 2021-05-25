@@ -15,18 +15,23 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
-
-	"context"
 
 	"github.com/abhinavdwivedi440/microservices/data"
-	"github.com/gorilla/mux"
 )
 
 type KeyProduct struct{}
+
+// A list of products returns in the response
+// swagger:response productsResponse
+type productsResponse struct {
+	// All products in the system
+	// in: body
+	Body []data.Product
+}
 
 type Product struct {
 	l *log.Logger
@@ -35,51 +40,6 @@ type Product struct {
 // NewProducts creates a products handler with the given logger
 func NewProducts(l *log.Logger) *Product {
 	return &Product{l}
-}
-
-// GetProducts returns the products from the data store
-func (p *Product) GetProducts(w http.ResponseWriter, r *http.Request) {
-	p.l.Println("Handle GET")
-	w.Header().Set("Content-Type", "application/json")
-
-	// fetch the products from the datastore
-	prodList := data.GetProducts()
-
-	// serialize the list to JSON
-	err := prodList.ToJSON(w)
-	if err != nil {
-		http.Error(w, "Unable to encode JSON", http.StatusInternalServerError)
-		return
-	}
-}
-
-func (p *Product) AddProduct(w http.ResponseWriter, r *http.Request) {
-	p.l.Println("Handle POST")
-	prod := r.Context().Value(KeyProduct{}).(*data.Product)
-	data.AddProduct(prod)
-}
-
-func (p *Product) UpdateProduct(w http.ResponseWriter, r *http.Request) {
-
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		http.Error(w, "Unable to convert id", http.StatusBadRequest)
-	}
-
-	p.l.Println("Handle PUT", id)
-	prod := r.Context().Value(KeyProduct{}).(*data.Product)
-
-	err = data.UpdateProduct(id, prod)
-	if err == data.ErrProductNotFound {
-		http.Error(w, "Product not found", http.StatusNotFound)
-		return
-	}
-
-	if err != nil {
-		http.Error(w, "Product not found", http.StatusInternalServerError)
-		return
-	}
 }
 
 func (p *Product) MiddlewareProductValidation(next http.Handler) http.Handler {
