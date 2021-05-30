@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"microservices/data"
+	"github.com/abhinavdwivedi440/microservices/data"
 )
 
 func (p *Product) AddProduct(w http.ResponseWriter, r *http.Request) {
